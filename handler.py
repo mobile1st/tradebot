@@ -6,7 +6,6 @@ from decimal import *
 from dydx3 import Client
 from dydx3 import private_key_to_public_key_pair_hex
 from dydx3.constants import *
-from web3 import Web3
 
 import boto3
 
