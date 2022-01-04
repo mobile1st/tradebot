@@ -24,8 +24,9 @@ STARK_PRIVATE_KEY = os.getenv('STARK_PRIVATE_KEY')
 
 
 def trade(event, context):
-    if not event.get('body'):
-        return {'statusCode': 400, 'body': json.dumps({'message': 'No body was found'})}
+    if not event.get('Records').get(0).get('Sns').get('Message'):
+        return {'statusCode': 400, 'body': json.dumps({'message': 'No `Message` was found'})}
+    message =  json.loads(event['Records'][0]['Sns']['Message'])
 
     api_key_credentials = {
         "walletAddress": WALLET_ADDRESS,
@@ -69,9 +70,9 @@ def trade(event, context):
     makerFeeRate = user['makerFeeRate']
     takerFeeRate = user['takerFeeRate']
 
-    size = Decimal(event.get('body').get('size'))
-    price = Decimal(event.get('body').get('price'))
-    maxTxFee = Decimal(event.get('body').get('maxTxFee'))
+    size = Decimal(event.message.get('size'))
+    price = Decimal(event.message.get('price'))
+    maxTxFee = Decimal(event.message.get('maxTxFee'))
 
     if max(makerFeeRate, takerFeeRate) * size * price > maxTxFee:
         return {'statusCode': 400, 'body': json.dumps({'message': 'Max Tx Fee exceeded, {} > {}'.format(max(makerFeeRate, takerFeeRate) * size * price, maxTxFee)})}
@@ -99,7 +100,7 @@ def producer(event, context):
     status_code = 200
     message = ''
 
-    if not event.get('body'):
+    if not event.message:
         return {'statusCode': 400, 'body': json.dumps({'message': 'No body was found'})}
 
     try:
