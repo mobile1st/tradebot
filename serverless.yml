@@ -13,9 +13,9 @@ functions:
         - Ref: PythonRequirementsLambdaLayer
     handler: handler.trade
     events:
-      sns: 
-        arn: !Ref TradingBot
-        topicName: buy
+      - sns: 
+          arn: !Ref TradingBot
+          topicName: buy
     environment:
       WALLET_ADDRESS: "0xD3d991067E60B458068b1767295ffBc6A23EC7cc"
       SECRET: "4Z5fqQvwMduo6TzkBuf1fSTG5WIrfL2FtvOYyEKX"
