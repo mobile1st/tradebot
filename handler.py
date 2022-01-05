@@ -25,7 +25,7 @@ STARK_PRIVATE_KEY = os.getenv('STARK_PRIVATE_KEY')
 def trade(event, context):
     if not event.get('Records')[0].get('Sns').get('Message'):
         return {'statusCode': 400, 'body': json.dumps({'message': 'No `Message` was found'})}
-    message =  json.loads(event['Records'][0]['Sns']['Message'])
+    message = json.loads(event['Records'][0]['Sns']['Message'])
 
     api_key_credentials = {
         "walletAddress": WALLET_ADDRESS,
@@ -68,15 +68,26 @@ def trade(event, context):
     makerFeeRate = user['makerFeeRate']
     takerFeeRate = user['takerFeeRate']
 
-    print('event', message)
-    size = Decimal(message.get('size'))
-    price = Decimal(message.get('price'))
-    maxTxFee = Decimal(message.get('maxTxFee'))
-    estimatedFeePercent = Decimal(max(makerFeeRate, takerFeeRate))
+    marketData = client.public.get_markets(
+        market=MARKET_ETH_USD).data['markets'][MARKET_ETH_USD]
+    logger.debug('marketData data {}'.format(marketData))
+    tickSize = marketData['tickSize']
+    stepSize = marketData['stepSize']
+
+    print('event', message, 'tickSize', tickSize)
+    size = Decimal(message.get('size')).quantize(Decimal(stepSize))
+    price = Decimal(message.get('price')).quantize(Decimal(tickSize))
+    maxTxFee = Decimal(message.get('maxTxFee')).quantize(Decimal(stepSize))
+    estimatedFeePercent = Decimal(
+        max(makerFeeRate, takerFeeRate)).quantize(Decimal(stepSize))
     estimatedFee = Decimal(estimatedFeePercent * size * price)
     if estimatedFee > maxTxFee:
+        logger.exception(json.dumps(
+            {'message': 'Max Tx Fee exceeded, {} > {}'.format(estimatedFee, maxTxFee)}))
         return {'statusCode': 400, 'body': json.dumps({'message': 'Max Tx Fee exceeded, {} > {}'.format(estimatedFee, maxTxFee)})}
-    if size * price + estimatedFeePercent * size * price > free_collateral:
+    if size * price + estimatedFee > free_collateral:
+        logger.exception(json.dumps({'message': 'Free Collateral exceeded, {} > {}'.format(
+            size * price + estimatedFee, free_collateral)}))
         return {'statusCode': 400, 'body': json.dumps({'message': 'Free Collateral exceeded, {} > {}'.format(estimatedFee, free_collateral)})}
 
     order_params = {
