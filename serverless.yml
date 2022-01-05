@@ -43,6 +43,6 @@ package:
 
 custom:
   pythonRequirements:
-    slim: true
-    dockerPip: true
+    # slim: true
+    # dockerPip: true
     layer: true
