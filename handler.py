@@ -23,7 +23,7 @@ STARK_PRIVATE_KEY = os.getenv('STARK_PRIVATE_KEY')
 
 
 def trade(event, context):
-    if not event.get('Records').get(0).get('Sns').get('Message'):
+    if not event.get('Records')[0].get('Sns').get('Message'):
         return {'statusCode': 400, 'body': json.dumps({'message': 'No `Message` was found'})}
     message =  json.loads(event['Records'][0]['Sns']['Message'])
 
@@ -58,24 +58,24 @@ def trade(event, context):
     # print('onboarding_response', onboarding_response)
 
     # Query a private endpoint.
-    accounts_response = client.private.get_accounts()
-    print('accounts_response', accounts_response)
-    logger.info('accounts_response', accounts_response)
 
-    account_response = client.private.get_account().data
+    account_response = client.private.get_account(WALLET_ADDRESS).data
+    print('account_response', account_response)
+    logger.info('account_response', account_response)
     position_id = account_response['account']['positionId']
-    free_collateral = account_response['account']['freeCollateral']
-    user = client.private.get_user().data
+    free_collateral = Decimal(account_response['account']['freeCollateral'])
+    user = client.private.get_user().data['user']
     makerFeeRate = user['makerFeeRate']
     takerFeeRate = user['takerFeeRate']
 
-    size = Decimal(event.message.get('size'))
-    price = Decimal(event.message.get('price'))
-    maxTxFee = Decimal(event.message.get('maxTxFee'))
-
-    if max(makerFeeRate, takerFeeRate) * size * price > maxTxFee:
+    print('event', message)
+    size = Decimal(message.get('size'))
+    price = Decimal(message.get('price'))
+    maxTxFee = Decimal(message.get('maxTxFee'))
+    estimatedFeePercent = Decimal(max(makerFeeRate, takerFeeRate))
+    if estimatedFeePercent * size * price > maxTxFee:
         return {'statusCode': 400, 'body': json.dumps({'message': 'Max Tx Fee exceeded, {} > {}'.format(max(makerFeeRate, takerFeeRate) * size * price, maxTxFee)})}
-    if size * price + max(makerFeeRate, takerFeeRate) * size * price > free_collateral:
+    if size * price + estimatedFeePercent * size * price > free_collateral:
         return {'statusCode': 400, 'body': json.dumps({'message': 'Free Collateral exceeded, {} > {}'.format(size * price + max(makerFeeRate, takerFeeRate) * size * price, free_collateral)})}
 
     order_params = {
@@ -84,9 +84,9 @@ def trade(event, context):
         'side': ORDER_SIDE_BUY,
         'order_type': ORDER_TYPE_LIMIT,
         'post_only': False,
-        'size': size,
-        'price': price,
-        'limit_fee': max(makerFeeRate, takerFeeRate),
+        'size': str(size),
+        'price': str(price),
+        'limit_fee': str(estimatedFeePercent),
         'expiration_epoch_seconds': time.time() + 120,
     }
     order_response = client.private.create_order(**order_params).data
