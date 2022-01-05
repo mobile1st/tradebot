@@ -73,10 +73,11 @@ def trade(event, context):
     price = Decimal(message.get('price'))
     maxTxFee = Decimal(message.get('maxTxFee'))
     estimatedFeePercent = Decimal(max(makerFeeRate, takerFeeRate))
-    if estimatedFeePercent * size * price > maxTxFee:
-        return {'statusCode': 400, 'body': json.dumps({'message': 'Max Tx Fee exceeded, {} > {}'.format(max(makerFeeRate, takerFeeRate) * size * price, maxTxFee)})}
+    estimatedFee = Decimal(estimatedFeePercent * size * price)
+    if estimatedFee > maxTxFee:
+        return {'statusCode': 400, 'body': json.dumps({'message': 'Max Tx Fee exceeded, {} > {}'.format(estimatedFee, maxTxFee)})}
     if size * price + estimatedFeePercent * size * price > free_collateral:
-        return {'statusCode': 400, 'body': json.dumps({'message': 'Free Collateral exceeded, {} > {}'.format(size * price + max(makerFeeRate, takerFeeRate) * size * price, free_collateral)})}
+        return {'statusCode': 400, 'body': json.dumps({'message': 'Free Collateral exceeded, {} > {}'.format(estimatedFee, free_collateral)})}
 
     order_params = {
         'position_id': position_id,
