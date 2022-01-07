@@ -29,7 +29,6 @@ if MAINNET:
     API_HOST = API_HOST_MAINNET
 
 
-
 def trade(event, context):
     if not event.get('Records')[0].get('Sns').get('Message'):
         return {'statusCode': 400, 'body': json.dumps({'message': 'No `Message` was found'})}
@@ -93,7 +92,7 @@ def trade(event, context):
         logger.exception(json.dumps(
             {'message': 'Max Tx Fee exceeded, {} > {}'.format(estimatedFee, maxTxFee)}))
         return {'statusCode': 400, 'body': json.dumps({'message': 'Max Tx Fee exceeded, {} > {}'.format(estimatedFee, maxTxFee)})}
-    if size * price + estimatedFee > free_collateral:
+    if size * price + estimatedFee >= free_collateral:
         logger.exception(json.dumps({'message': 'Free Collateral exceeded, {} > {}'.format(
             size * price + estimatedFee, free_collateral)}))
         return {'statusCode': 400, 'body': json.dumps({'message': 'Free Collateral exceeded, {} > {}'.format(estimatedFee, free_collateral)})}
@@ -135,9 +134,90 @@ def producer(event, context):
     return {'statusCode': status_code, 'body': json.dumps({'message': message})}
 
 
-def consumer(event, context):
-    for record in event['Records']:
-        logger.info(f'Message body: {record["body"]}')
-        logger.info(
-            f'Message attribute: {record["messageAttributes"]["AttributeName"]["stringValue"]}'
-        )
+def cost_basis_sell(event, context):
+
+    api_key_credentials = {
+        "walletAddress": WALLET_ADDRESS,
+        "secret": SECRET,
+        "key": KEY,
+        "passphrase": PASSPHRASE,
+        "legacySigning": LEGACY_SIGNING,
+        "walletType": WALLET_TYPE
+    }
+    # Set STARK key.
+    stark_private_key = STARK_PRIVATE_KEY
+    public_x, public_y = private_key_to_public_key_pair_hex(stark_private_key)
+
+    client = Client(
+        network_id=NETWORK_ID,
+        host=API_HOST,
+        default_ethereum_address=WALLET_ADDRESS,
+        stark_private_key=stark_private_key,
+        stark_public_key=public_x,
+        stark_public_key_y_coordinate=public_y,
+        api_key_credentials=api_key_credentials,
+        web3=None,
+    )
+
+    account_response = client.private.get_account(WALLET_ADDRESS).data
+    print('account_response', account_response)
+    logger.info('account_response', account_response)
+    cost_basis = Decimal(
+        account_response['account']['entryPrice'])/Decimal(account_response['account']['size'])
+    print('cost_basis', cost_basis)
+    logger.info('cost_basis', cost_basis)
+
+    marketData = client.public.get_markets(
+        MARKET_ETH_USD).data['markets'][MARKET_ETH_USD]
+    tickSize = marketData['tickSize']
+    stepSize = marketData['stepSize']
+    indexPrice = Decimal(marketData['indexPrice']).quantize(tickSize)
+
+    position_id = account_response['account']['positionId']
+    quoteBalance = Decimal(account_response['account']['quoteBalance'])
+    user = client.private.get_user().data['user']
+    makerFeeRate = user['makerFeeRate']
+    takerFeeRate = user['takerFeeRate']
+    estimatedFeePercent = Decimal(
+        max(makerFeeRate, takerFeeRate)).quantize(Decimal(stepSize))
+
+    # Constants
+    SELL_SIZE = Decimal(0.1)  # ETH
+    MAX_FEE = 1  # Dollar
+    PROFIT_PERCENT = Decimal(1.01)
+
+    estimatedFee = Decimal(estimatedFeePercent * SELL_SIZE)
+    if indexPrice < cost_basis * PROFIT_PERCENT:
+        error = {'message': 'indexPrice {} is not {} times greater than cost basis of {}'.format(
+            indexPrice, PROFIT_PERCENT, cost_basis)}
+        logger.exception(json.dumps(error))
+        return {'statusCode': 400, 'body': json.dumps(error)}
+
+    if estimatedFee > MAX_FEE:
+        error = {'message': 'Max Tx Fee exceeded, {} > {}'.format(
+            estimatedFee, MAX_FEE)}
+        logger.exception(json.dumps(error))
+        return {'statusCode': 400, 'body': json.dumps(error)}
+
+    if SELL_SIZE + estimatedFee >= quoteBalance:
+        error = {'message': 'Quote balance exceeded, {} > {}'.format(
+            SELL_SIZE * indexPrice + estimatedFee, quoteBalance)}
+        logger.exception(json.dumps(error))
+        return {'statusCode': 400, 'body': json.dumps(error)}
+
+        # Sanity checks passed, lets sell!
+    order_params = {
+        'position_id': position_id,
+        'market': MARKET_ETH_USD,
+        'side': ORDER_SIDE_SELL,
+        'order_type': ORDER_TYPE_LIMIT,
+        'post_only': False,
+        'size': str(SELL_SIZE),
+        'price': str(indexPrice),
+        'limit_fee': str(estimatedFeePercent),
+        'expiration_epoch_seconds': time.time() + 120,
+    }
+    order_response = client.private.create_order(**order_params).data
+    order_id = order_response['order']['id']
+    logger.info("Order created: {}".format(order_response))
+    return {'statusCode': 200, 'body': json.dumps({'order_response': order_response})}
