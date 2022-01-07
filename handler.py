@@ -20,6 +20,14 @@ PASSPHRASE = os.getenv('PASSPHRASE')
 LEGACY_SIGNING = os.getenv('LEGACY_SIGNING') == 'True'
 WALLET_TYPE = os.getenv('WALLET_TYPE')
 STARK_PRIVATE_KEY = os.getenv('STARK_PRIVATE_KEY')
+MAINNET = os.getenv('MAINNET') == 'True'
+
+NETWORK_ID = NETWORK_ID_ROPSTEN
+API_HOST = API_HOST_ROPSTEN
+if MAINNET:
+    NETWORK_ID = NETWORK_ID_MAINNET
+    API_HOST = API_HOST_MAINNET
+
 
 
 def trade(event, context):
@@ -40,8 +48,8 @@ def trade(event, context):
     public_x, public_y = private_key_to_public_key_pair_hex(stark_private_key)
 
     client = Client(
-        network_id=NETWORK_ID_ROPSTEN,
-        host=API_HOST_ROPSTEN,
+        network_id=NETWORK_ID,
+        host=API_HOST,
         default_ethereum_address=WALLET_ADDRESS,
         stark_private_key=stark_private_key,
         stark_public_key=public_x,

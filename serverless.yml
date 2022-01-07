@@ -25,6 +25,7 @@ functions:
       LEGACY_SIGNING: "False"
       WALLET_TYPE: "METAMASK"
       STARK_PRIVATE_KEY: "053b26b0d600c4f2bdc3ffa4616e105977fe3941ad6a7a5d8c894dc510cc5b8a"
+      MAINNET: "False"
 
 plugins:
   - serverless-lift
