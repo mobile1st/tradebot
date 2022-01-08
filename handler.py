@@ -175,7 +175,7 @@ def cost_basis_sell(event, context):
     position_size = Decimal(position_response['size'])
     entry_price = Decimal(
         position_response['entryPrice'])
-    cost_basis = (entry_price/position_size).quantize(Decimal(stepSize))
+    cost_basis = (entry_price).quantize(Decimal(stepSize))
     print('cost_basis', cost_basis)
     logger.info('cost_basis' + str(cost_basis))
 
