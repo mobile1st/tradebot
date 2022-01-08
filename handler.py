@@ -201,9 +201,9 @@ def cost_basis_sell(event, context):
         logger.exception(json.dumps(error))
         return {'statusCode': 400, 'body': json.dumps(error)}
 
-    if SELL_SIZE + estimatedFee >= position_size:
+    if SELL_SIZE + estimatedFeePercent * SELL_SIZE >= position_size:
         error = {'message': 'Position size exceeded, {} > {}'.format(
-            SELL_SIZE + estimatedFee, position_size)}
+            SELL_SIZE + estimatedFeePercent * SELL_SIZE, position_size)}
         logger.exception(json.dumps(error))
         return {'statusCode': 400, 'body': json.dumps(error)}
 
