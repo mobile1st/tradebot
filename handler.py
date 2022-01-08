@@ -190,22 +190,14 @@ def cost_basis_sell(event, context):
     takerFeeRate = Decimal(user['takerFeeRate'])
     estimatedFeePercent = Decimal(
         max(makerFeeRate, takerFeeRate)).quantize(Decimal(stepSize))
-
     # Constants
     SELL_SIZE = Decimal(0.01).quantize(Decimal(stepSize))  # ETH
-    MAX_FEE = Decimal(1).quantize(Decimal(tickSize))  # Dollar
     PROFIT_PERCENT = Decimal(1.01).quantize(Decimal('1.00'))
 
     estimatedFee = Decimal(estimatedFeePercent * SELL_SIZE)
-    if indexPrice < cost_basis * PROFIT_PERCENT:
-        error = {'message': 'indexPrice {} is not {} times greater than cost basis of {}'.format(
-            indexPrice, PROFIT_PERCENT, cost_basis)}
-        logger.exception(json.dumps(error))
-        return {'statusCode': 400, 'body': json.dumps(error)}
-
-    if estimatedFee > MAX_FEE:
-        error = {'message': 'Max Tx Fee exceeded, {} > {}'.format(
-            estimatedFee, MAX_FEE)}
+    if indexPrice < cost_basis * PROFIT_PERCENT + estimatedFee:
+        error = {'message': 'indexPrice {} is not {} times greater than cost basis of {} + fee of {}'.format(
+            indexPrice, PROFIT_PERCENT, cost_basis, estimatedFee)}
         logger.exception(json.dumps(error))
         return {'statusCode': 400, 'body': json.dumps(error)}
 
