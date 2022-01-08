@@ -29,7 +29,7 @@ functions:
   seller:
     layers:
       - Ref: PythonRequirementsLambdaLayer
-    handler: handler.sell
+    handler: handler.cost_basis_sell
     events:
       - sns: 
           arn: arn:aws:sns:us-west-2:977566059069:AnalyzeTrade
