@@ -176,6 +176,9 @@ def cost_basis_sell(event, context):
     entry_price = Decimal(
         position_response['entryPrice'])
     cost_basis = (entry_price).quantize(Decimal(stepSize))
+    realizedLosses = min(Decimal(
+        position_response['realizedPnl']), Decimal(0))
+    cost_basis = (entry_price).quantize(Decimal(stepSize))
     print('cost_basis', cost_basis)
     logger.info('cost_basis' + str(cost_basis))
 
@@ -193,9 +196,12 @@ def cost_basis_sell(event, context):
     # Constants
     SELL_SIZE = Decimal(0.01).quantize(Decimal(stepSize))  # ETH
     PROFIT_PERCENT = Decimal(1.01).quantize(Decimal('1.00'))
-
     estimatedFee = Decimal(estimatedFeePercent * SELL_SIZE)
-    if indexPrice < cost_basis * PROFIT_PERCENT + estimatedFee:
+    realized_losses_per_eth = Decimal(realizedLosses/position_size)*SELL_SIZE
+
+    lowest_offer = cost_basis * PROFIT_PERCENT + \
+        estimatedFee + realized_losses_per_eth
+    if indexPrice < lowest_offer:
         error = {'message': 'indexPrice {} is not {} times greater than cost basis of {} + fee of {}'.format(
             indexPrice, PROFIT_PERCENT, cost_basis, estimatedFee)}
         logger.exception(json.dumps(error))
