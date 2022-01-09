@@ -166,6 +166,7 @@ def cost_basis_sell(event, context):
         MARKET_ETH_USD).data['markets'][MARKET_ETH_USD]
     tickSize = Decimal(marketData['tickSize'])
     stepSize = Decimal(marketData['stepSize'])
+    oraclePrice = Decimal(marketData['oraclePrice'])
 
     position_response = client.private.get_positions(
         market=MARKET_ETH_USD,
@@ -188,6 +189,8 @@ def cost_basis_sell(event, context):
     print('account_response', account_response)
     logger.info('account_response', account_response)
     position_id = account_response['account']['positionId']
+    equity = Decimal(account_response['account']['equity'])
+
     user = client.private.get_user().data['user']
     makerFeeRate = Decimal(user['makerFeeRate'])
     takerFeeRate = Decimal(user['takerFeeRate'])
@@ -197,10 +200,18 @@ def cost_basis_sell(event, context):
     SELL_SIZE = Decimal(0.01).quantize(Decimal(stepSize))  # ETH
     PROFIT_PERCENT = Decimal(1.01).quantize(Decimal('1.00'))
     estimatedFee = Decimal(estimatedFeePercent * SELL_SIZE)
-    realized_losses_per_eth = Decimal(realizedLosses/position_size)*SELL_SIZE
+    realized_losses_per_sell_size = Decimal(
+        realizedLosses/position_size)*SELL_SIZE
 
-    lowest_offer = cost_basis * PROFIT_PERCENT + \
-        estimatedFee + realized_losses_per_eth
+    leverage = (abs(position_size) * oraclePrice)/equity
+    # Calculate the sell price
+    lowest_offer = 0
+    if leverage > Decimal(1.0) and realized_losses_per_sell_size > 0:
+        # break even to get out of leverage
+        lowest_offer = cost_basis + estimatedFee + realized_losses_per_sell_size
+    else:
+        lowest_offer = cost_basis * SELL_SIZE * PROFIT_PERCENT + estimatedFee
+
     if indexPrice < lowest_offer:
         error = {'message': 'indexPrice {} is not {} times greater than cost basis of {} + fee of {}'.format(
             indexPrice, PROFIT_PERCENT, cost_basis, estimatedFee)}
