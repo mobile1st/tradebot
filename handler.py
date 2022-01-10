@@ -72,6 +72,7 @@ def trade(event, context):
     tickSize = marketData['tickSize']
     stepSize = marketData['stepSize']
     oraclePrice = Decimal(marketData['oraclePrice'])
+    indexPrice = Decimal(marketData['indexPrice'])
 
     print('event', message, 'tickSize', tickSize)
     orderSize = Decimal(message.get('size')).quantize(Decimal(stepSize))
@@ -86,11 +87,21 @@ def trade(event, context):
         status=POSITION_STATUS_OPEN,
     ).data['positions'][0]
     positionSize = Decimal(eth_position['size'])
+    entry_price = Decimal(
+        eth_position['entryPrice'])
+    cost_basis = (entry_price).quantize(Decimal(stepSize))
 
     leverage = ((abs(positionSize) + abs(orderSize)) * oraclePrice)/equity
     if leverage > Decimal(1.0):
         error = {
             'message': 'Not enough equity to stay out of margin, estimated leverage: {}'.format(leverage)}
+        logger.exception(json.dumps(error))
+        return {'statusCode': 400, 'body': json.dumps(error)}
+
+    order_cost_basis = cost_basis * orderSize + estimatedFee
+    if indexPrice * orderSize >= order_cost_basis:
+        error = {'message': 'Index price {} is greater than or equal to cost_basis + fees of {}'.format(
+            indexPrice, order_cost_basis)}
         logger.exception(json.dumps(error))
         return {'statusCode': 400, 'body': json.dumps(error)}
 
