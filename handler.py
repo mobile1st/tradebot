@@ -138,7 +138,6 @@ def producer(event, context):
 
 
 def cost_basis_sell(event, context):
-
     api_key_credentials = {
         "walletAddress": WALLET_ADDRESS,
         "secret": SECRET,
@@ -206,11 +205,11 @@ def cost_basis_sell(event, context):
     leverage = (abs(position_size) * oraclePrice)/equity
     # Calculate the sell price
     lowest_offer = 0
-    if leverage > Decimal(1.0) and realized_losses_per_sell_size > 0:
+    if realized_losses_per_sell_size > 0:
         # break even to get out of leverage
         lowest_offer = cost_basis + estimatedFee + realized_losses_per_sell_size
     else:
-        lowest_offer = cost_basis * SELL_SIZE * PROFIT_PERCENT + estimatedFee
+        lowest_offer = cost_basis * PROFIT_PERCENT + estimatedFee
 
     if indexPrice < lowest_offer:
         error = {'message': 'indexPrice {} is not {} times greater than cost basis of {} + fee of {}'.format(
@@ -225,6 +224,13 @@ def cost_basis_sell(event, context):
         return {'statusCode': 400, 'body': json.dumps(error)}
 
         # Sanity checks passed, lets sell!
+    orders = client.private.get_orders(
+        side='SELL', market=MARKET_ETH_USD, limit=1).data['orders']
+    logger.info("Orders:" + str(orders))
+    last_order_id = ''
+    if len(orders) > 0:
+        last_order_id = orders[0]['id']
+
     order_params = {
         'position_id': position_id,
         'market': MARKET_ETH_USD,
@@ -235,6 +241,7 @@ def cost_basis_sell(event, context):
         'price': str(indexPrice),
         'limit_fee': str(estimatedFeePercent),
         'expiration_epoch_seconds': time.time() + 120,
+        'cancel_id': last_order_id
     }
     order_response = client.private.create_order(**order_params).data
     order_id = order_response['order']['id']
