@@ -99,7 +99,7 @@ def trade(event, context):
         return {'statusCode': 400, 'body': json.dumps(error)}
 
     order_cost_basis = cost_basis * orderSize + estimatedFee
-    if indexPrice * orderSize >= order_cost_basis:
+    if indexPrice * orderSize >= order_cost_basis and positionSize > 1:
         error = {'message': 'Index price {} is greater than or equal to cost_basis + fees of {}'.format(
             indexPrice, order_cost_basis)}
         logger.exception(json.dumps(error))
