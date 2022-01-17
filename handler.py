@@ -76,7 +76,8 @@ def trade(event, context):
 
     print('event', message, 'tickSize', tickSize)
     orderSize = Decimal(message.get('size')).quantize(Decimal(stepSize))
-    price = Decimal(message.get('price')).quantize(Decimal(tickSize))
+    price = min(Decimal(message.get('price')).quantize(
+        Decimal(tickSize)), indexPrice)
     maxTxFee = Decimal(message.get('maxTxFee')).quantize(Decimal(stepSize))
     estimatedFeePercent = Decimal(
         max(makerFeeRate, takerFeeRate)).quantize(Decimal(stepSize))
@@ -261,7 +262,7 @@ def cost_basis_sell(event, context):
         'order_type': ORDER_TYPE_LIMIT,
         'post_only': False,
         'size': str(SELL_SIZE),
-        'price': str(sell_prediction),
+        'price': str(max(sell_prediction, indexPrice)),
         'limit_fee': str(estimatedFeePercent),
         'expiration_epoch_seconds': time.time() + 120,
         'cancel_id': last_order_id
