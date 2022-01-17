@@ -249,7 +249,7 @@ def cost_basis_sell(event, context):
     else:
         lowest_offer = cost_basis * PROFIT_PERCENT + estimatedFee
 
-    if sell_prediction < lowest_offer:
+    if max(indexPrice, sell_prediction) < lowest_offer:
         error = {'message': 'predictedSellPrice {} is not {} times greater than cost basis of {} + fee of {}'.format(
             sell_prediction, PROFIT_PERCENT, cost_basis, estimatedFee)}
         logger.exception(json.dumps(error))
