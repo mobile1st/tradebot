@@ -76,8 +76,8 @@ def trade(event, context):
 
     print('event', message, 'tickSize', tickSize)
     orderSize = Decimal(message.get('size')).quantize(Decimal(stepSize))
-    price = min(Decimal(message.get('price')).quantize(
-        Decimal(tickSize)), indexPrice)
+    price = Decimal(message.get('price')).quantize(
+        Decimal(tickSize))
     maxTxFee = Decimal(message.get('maxTxFee')).quantize(Decimal(stepSize))
     estimatedFeePercent = Decimal(
         max(makerFeeRate, takerFeeRate)).quantize(Decimal(stepSize))
@@ -118,18 +118,32 @@ def trade(event, context):
     last_order_id = ''
     if len(orders) > 0:
         last_order_id = orders[0]['id']
-    order_params = {
-        'position_id': position_id,
-        'market': MARKET_ETH_USD,
-        'side': ORDER_SIDE_BUY,
-        'order_type': ORDER_TYPE_LIMIT,
-        'post_only': False,
-        'size': str(orderSize),
-        'price': str(price),
-        'limit_fee': str(estimatedFeePercent),
-        'expiration_epoch_seconds': time.time() + 120,
-        'cancel_id': last_order_id
-    }
+
+    if indexPrice < price:
+        order_params = {
+            'position_id': position_id,
+            'market': MARKET_ETH_USD,
+            'side': ORDER_SIDE_BUY,
+            'order_type': 'MARKET',
+            'post_only': False,
+            'size': str(orderSize),
+            'limit_fee': str(estimatedFeePercent),
+            'expiration_epoch_seconds': time.time() + 120,
+            'cancel_id': last_order_id
+        }
+    else:
+        order_params = {
+            'position_id': position_id,
+            'market': MARKET_ETH_USD,
+            'side': ORDER_SIDE_BUY,
+            'order_type': ORDER_TYPE_LIMIT,
+            'post_only': False,
+            'size': str(orderSize),
+            'price': str(price),
+            'limit_fee': str(estimatedFeePercent),
+            'expiration_epoch_seconds': time.time() + 120,
+            'cancel_id': last_order_id
+        }
     order_response = client.private.create_order(**order_params).data
     order_id = order_response['order']['id']
     logger.info("Order created: {}".format(order_response))
@@ -254,19 +268,31 @@ def cost_basis_sell(event, context):
     last_order_id = ''
     if len(orders) > 0:
         last_order_id = orders[0]['id']
-
-    order_params = {
-        'position_id': position_id,
-        'market': MARKET_ETH_USD,
-        'side': ORDER_SIDE_SELL,
-        'order_type': ORDER_TYPE_LIMIT,
-        'post_only': False,
-        'size': str(SELL_SIZE),
-        'price': str(max(sell_prediction, indexPrice)),
-        'limit_fee': str(estimatedFeePercent),
-        'expiration_epoch_seconds': time.time() + 120,
-        'cancel_id': last_order_id
-    }
+    if indexPrice > sell_prediction:
+        order_params = {
+            'position_id': position_id,
+            'market': MARKET_ETH_USD,
+            'side': ORDER_SIDE_SELL,
+            'order_type': 'MARKET',
+            'post_only': False,
+            'size': str(SELL_SIZE),
+            'limit_fee': str(estimatedFeePercent),
+            'expiration_epoch_seconds': time.time() + 120,
+            'cancel_id': last_order_id
+        }
+    else:
+        order_params = {
+            'position_id': position_id,
+            'market': MARKET_ETH_USD,
+            'side': ORDER_SIDE_SELL,
+            'order_type': ORDER_TYPE_LIMIT,
+            'post_only': False,
+            'size': str(SELL_SIZE),
+            'price': str(sell_prediction),
+            'limit_fee': str(estimatedFeePercent),
+            'expiration_epoch_seconds': time.time() + 120,
+            'cancel_id': last_order_id
+        }
     order_response = client.private.create_order(**order_params).data
     order_id = order_response['order']['id']
     logger.info("Order created: {}".format(order_response))
