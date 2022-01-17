@@ -99,7 +99,7 @@ def trade(event, context):
         return {'statusCode': 400, 'body': json.dumps(error)}
 
     order_cost_basis = cost_basis * orderSize + estimatedFee
-    if indexPrice * orderSize >= order_cost_basis and positionSize > 1:
+    if positionSize > 1 and indexPrice * orderSize >= order_cost_basis:
         error = {'message': 'Index price {} is greater than or equal to cost_basis + fees of {}'.format(
             indexPrice, order_cost_basis)}
         logger.exception(json.dumps(error))
@@ -111,6 +111,12 @@ def trade(event, context):
         logger.exception(error)
         return {'statusCode': 400, 'body': error}
 
+    orders = client.private.get_orders(
+        side='BUY', market=MARKET_ETH_USD, limit=1).data['orders']
+    logger.info("Orders:" + str(orders))
+    last_order_id = ''
+    if len(orders) > 0:
+        last_order_id = orders[0]['id']
     order_params = {
         'position_id': position_id,
         'market': MARKET_ETH_USD,
@@ -121,6 +127,7 @@ def trade(event, context):
         'price': str(price),
         'limit_fee': str(estimatedFeePercent),
         'expiration_epoch_seconds': time.time() + 120,
+        'cancel_id': last_order_id
     }
     order_response = client.private.create_order(**order_params).data
     order_id = order_response['order']['id']
@@ -149,6 +156,9 @@ def producer(event, context):
 
 
 def cost_basis_sell(event, context):
+    if not event.get('Records')[0].get('Sns').get('Message'):
+        return {'statusCode': 400, 'body': json.dumps({'message': 'No `Message` was found'})}
+    message = json.loads(event['Records'][0]['Sns']['Message'])
     api_key_credentials = {
         "walletAddress": WALLET_ADDRESS,
         "secret": SECRET,
@@ -194,6 +204,8 @@ def cost_basis_sell(event, context):
     logger.info('cost_basis' + str(cost_basis))
 
     indexPrice = Decimal(marketData['indexPrice']).quantize(tickSize)
+    sell_prediction = Decimal(
+        message['prediction_result_max']).quantize(tickSize)
 
     account_response = client.private.get_account(WALLET_ADDRESS).data
     print('account_response', account_response)
@@ -222,9 +234,9 @@ def cost_basis_sell(event, context):
     else:
         lowest_offer = cost_basis * PROFIT_PERCENT + estimatedFee
 
-    if indexPrice < lowest_offer:
-        error = {'message': 'indexPrice {} is not {} times greater than cost basis of {} + fee of {}'.format(
-            indexPrice, PROFIT_PERCENT, cost_basis, estimatedFee)}
+    if sell_prediction < lowest_offer:
+        error = {'message': 'predictedSellPrice {} is not {} times greater than cost basis of {} + fee of {}'.format(
+            sell_prediction, PROFIT_PERCENT, cost_basis, estimatedFee)}
         logger.exception(json.dumps(error))
         return {'statusCode': 400, 'body': json.dumps(error)}
 
@@ -249,7 +261,7 @@ def cost_basis_sell(event, context):
         'order_type': ORDER_TYPE_LIMIT,
         'post_only': False,
         'size': str(SELL_SIZE),
-        'price': str(indexPrice),
+        'price': str(sell_prediction),
         'limit_fee': str(estimatedFeePercent),
         'expiration_epoch_seconds': time.time() + 120,
         'cancel_id': last_order_id
