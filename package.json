@@ -7,5 +7,8 @@
   "devDependencies": {
     "serverless-lift": "^1.1.2",
     "serverless-python-requirements": "^5.2.2"
+  },
+  "dependencies": {
+    "serverless": "^2.72.1"
   }
 }

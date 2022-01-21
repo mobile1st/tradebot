@@ -63,6 +63,7 @@ def trade(event, context):
     position_id = account_response['account']['positionId']
     equity = Decimal(account_response['account']['equity'])
     user = client.private.get_user().data['user']
+    logger.info('user_response', user)
     makerFeeRate = user['makerFeeRate']
     takerFeeRate = user['takerFeeRate']
 
@@ -93,7 +94,7 @@ def trade(event, context):
     cost_basis = (entry_price).quantize(Decimal(stepSize))
 
     leverage = ((abs(positionSize) + abs(orderSize)) * oraclePrice)/equity
-    if leverage > Decimal(1.0):
+    if leverage > Decimal(3.0):
         error = {
             'message': 'Not enough equity to stay out of margin, estimated leverage: {}'.format(leverage)}
         logger.exception(json.dumps(error))
@@ -126,6 +127,7 @@ def trade(event, context):
             'side': ORDER_SIDE_BUY,
             'order_type': 'MARKET',
             'post_only': False,
+            'price': str(indexPrice),
             'size': str(orderSize),
             'limit_fee': str(estimatedFeePercent),
             'expiration_epoch_seconds': time.time() + 120,
@@ -174,6 +176,9 @@ def cost_basis_sell(event, context):
     if not event.get('Records')[0].get('Sns').get('Message'):
         return {'statusCode': 400, 'body': json.dumps({'message': 'No `Message` was found'})}
     message = json.loads(event['Records'][0]['Sns']['Message'])
+    if (Decimal(f"{time.time()}") - Decimal(message['timestamp'])) > Decimal('10'):
+        return {'statusCode': 400, 'body': json.dumps({'message': 'Stale prediction'})}
+
     api_key_credentials = {
         "walletAddress": WALLET_ADDRESS,
         "secret": SECRET,
@@ -275,6 +280,7 @@ def cost_basis_sell(event, context):
             'side': ORDER_SIDE_SELL,
             'order_type': 'MARKET',
             'post_only': False,
+            'price': str(indexPrice),
             'size': str(SELL_SIZE),
             'limit_fee': str(estimatedFeePercent),
             'expiration_epoch_seconds': time.time() + 120,
