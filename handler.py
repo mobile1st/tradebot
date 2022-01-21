@@ -64,8 +64,8 @@ def trade(event, context):
     equity = Decimal(account_response['account']['equity'])
     user = client.private.get_user().data['user']
     logger.info('user_response' + json.dumps(user))
-    makerFeeRate = user['makerFeeRate']
-    takerFeeRate = user['takerFeeRate']
+    makerFeeRate = Decimal(user['makerFeeRate'])
+    takerFeeRate = Decimal(user['takerFeeRate'])
 
     marketData = client.public.get_markets(
         market=MARKET_ETH_USD).data['markets'][MARKET_ETH_USD]
@@ -81,7 +81,7 @@ def trade(event, context):
         Decimal(tickSize))
     maxTxFee = Decimal(message.get('maxTxFee')).quantize(Decimal(stepSize))
     estimatedFeePercent = Decimal(
-        max(makerFeeRate, takerFeeRate)).quantize(Decimal(stepSize))
+        max(makerFeeRate, takerFeeRate))
     estimatedFee = Decimal(estimatedFeePercent * orderSize * price)
 
     eth_position = client.private.get_positions(
