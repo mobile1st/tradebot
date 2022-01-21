@@ -58,12 +58,12 @@ def trade(event, context):
     )
 
     account_response = client.private.get_account(WALLET_ADDRESS).data
-    print('account_response', account_response)
-    logger.info('account_response', account_response)
+    print('account_response' + json.dumps(account_response))
+    logger.info('account_response' + json.dumps(account_response))
     position_id = account_response['account']['positionId']
     equity = Decimal(account_response['account']['equity'])
     user = client.private.get_user().data['user']
-    logger.info('user_response', user)
+    logger.info('user_response' + json.dumps(user))
     makerFeeRate = user['makerFeeRate']
     takerFeeRate = user['takerFeeRate']
 
@@ -125,7 +125,7 @@ def trade(event, context):
             'position_id': position_id,
             'market': MARKET_ETH_USD,
             'side': ORDER_SIDE_BUY,
-            'order_type': 'MARKET',
+            'order_type': ORDER_TYPE_LIMIT,
             'post_only': False,
             'price': str(indexPrice),
             'size': str(orderSize),
@@ -278,7 +278,7 @@ def cost_basis_sell(event, context):
             'position_id': position_id,
             'market': MARKET_ETH_USD,
             'side': ORDER_SIDE_SELL,
-            'order_type': 'MARKET',
+            'order_type': ORDER_TYPE_LIMIT,
             'post_only': False,
             'price': str(indexPrice),
             'size': str(SELL_SIZE),
