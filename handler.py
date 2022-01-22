@@ -94,7 +94,7 @@ def trade(event, context):
     cost_basis = (entry_price).quantize(Decimal(stepSize))
 
     leverage = ((abs(positionSize) + abs(orderSize)) * oraclePrice)/equity
-    if leverage > Decimal(3.0):
+    if leverage > Decimal(20.0):
         error = {
             'message': 'Not enough equity to stay out of margin, estimated leverage: {}'.format(leverage)}
         logger.exception(json.dumps(error))
@@ -126,7 +126,7 @@ def trade(event, context):
             'market': MARKET_ETH_USD,
             'side': ORDER_SIDE_BUY,
             'order_type': ORDER_TYPE_LIMIT,
-            'post_only': False,
+            'post_only': True,
             'price': str(indexPrice),
             'size': str(orderSize),
             'limit_fee': str(estimatedFeePercent),
@@ -139,7 +139,7 @@ def trade(event, context):
             'market': MARKET_ETH_USD,
             'side': ORDER_SIDE_BUY,
             'order_type': ORDER_TYPE_LIMIT,
-            'post_only': False,
+            'post_only': True,
             'size': str(orderSize),
             'price': str(price),
             'limit_fee': str(estimatedFeePercent),
@@ -279,8 +279,8 @@ def cost_basis_sell(event, context):
             'market': MARKET_ETH_USD,
             'side': ORDER_SIDE_SELL,
             'order_type': ORDER_TYPE_LIMIT,
-            'post_only': False,
-            'price': str(indexPrice),
+            'post_only': True,
+            'price': str(indexPrice.quantize(tickSize)),
             'size': str(SELL_SIZE),
             'limit_fee': str(estimatedFeePercent),
             'expiration_epoch_seconds': time.time() + 120,
@@ -292,9 +292,9 @@ def cost_basis_sell(event, context):
             'market': MARKET_ETH_USD,
             'side': ORDER_SIDE_SELL,
             'order_type': ORDER_TYPE_LIMIT,
-            'post_only': False,
+            'post_only': True,
             'size': str(SELL_SIZE),
-            'price': str(sell_prediction),
+            'price': str(sell_prediction.quantize(tickSize)),
             'limit_fee': str(estimatedFeePercent),
             'expiration_epoch_seconds': time.time() + 120,
             'cancel_id': last_order_id
